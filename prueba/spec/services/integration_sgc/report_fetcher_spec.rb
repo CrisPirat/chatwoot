@@ -45,7 +45,7 @@ RSpec.describe IntegrationSgc::ReportFetcher do
   describe '#perform' do
     it 'fetches and normalizes the fixed SGC report response' do
       expect(SafeFetch).to receive(:fetch).with(
-        described_class::REPORT_URL,
+        described_class::DEFAULT_REPORT_URL,
         headers: { 'Accept' => 'application/json' },
         allowed_content_type_prefixes: [],
         allowed_content_types: ['application/json'],
@@ -99,7 +99,7 @@ RSpec.describe IntegrationSgc::ReportFetcher do
     end
 
     it 'requests a custom range with the fixed external account' do
-      expected_url = "#{described_class::REPORT_URL}?account_id=2&from_date=2026-07-01&to_date=2026-07-29"
+      expected_url = "#{described_class::DEFAULT_REPORT_URL}?account_id=2&from_date=2026-07-01&to_date=2026-07-29"
 
       expect(SafeFetch).to receive(:fetch).with(
         expected_url,
@@ -118,7 +118,7 @@ RSpec.describe IntegrationSgc::ReportFetcher do
       report['funnel']['to_date'] = nil
       allow(tempfile).to receive(:read).and_return(report.to_json)
 
-      expected_url = "#{described_class::REPORT_URL}?account_id=2&all=true"
+      expected_url = "#{described_class::DEFAULT_REPORT_URL}?account_id=2&all=true"
       expect(SafeFetch).to receive(:fetch).with(
         expected_url,
         headers: { 'Accept' => 'application/json' },
@@ -131,6 +131,22 @@ RSpec.describe IntegrationSgc::ReportFetcher do
 
       expect(response.dig('funnel', 'from_date')).to be_nil
       expect(response.dig('funnel', 'to_date')).to be_nil
+    end
+
+    it 'uses URL_REPORT when configured' do
+      report_url = 'https://reports.example.test/webhook/sgc'
+
+      with_modified_env 'URL_REPORT' => report_url do
+        expect(SafeFetch).to receive(:fetch).with(
+          report_url,
+          headers: { 'Accept' => 'application/json' },
+          allowed_content_type_prefixes: [],
+          allowed_content_types: ['application/json'],
+          max_bytes: described_class::MAX_RESPONSE_BYTES
+        ).and_yield(result)
+
+        described_class.new.perform
+      end
     end
 
     it 'allows a negative drop-off when a downstream event count increases' do

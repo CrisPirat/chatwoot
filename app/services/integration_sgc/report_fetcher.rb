@@ -5,7 +5,7 @@ require 'json'
 require 'uri'
 
 class IntegrationSgc::ReportFetcher
-  REPORT_URL = 'https://hyundai.bkn.aigentss.cloud/webhook/sgc-report-chatwoot'
+  DEFAULT_REPORT_URL = 'https://hyundai.bkn.aigentss.cloud/webhook/sgc-report-chatwoot'
   REPORT_ACCOUNT_ID = 2
   MAX_RESPONSE_BYTES = 256.kilobytes
 
@@ -142,6 +142,7 @@ class IntegrationSgc::ReportFetcher
   end
 
   def report_url
+    source_url = ENV.fetch('URL_REPORT', DEFAULT_REPORT_URL).presence || DEFAULT_REPORT_URL
     query = if all?
               { account_id: REPORT_ACCOUNT_ID, all: true }
             elsif custom_range?
@@ -150,9 +151,9 @@ class IntegrationSgc::ReportFetcher
               {}
             end
 
-    return REPORT_URL if query.empty?
+    return source_url if query.empty?
 
-    "#{REPORT_URL}?#{URI.encode_www_form(query)}"
+    "#{source_url}?#{URI.encode_www_form(query)}"
   end
 
   def all?
