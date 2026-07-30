@@ -5,6 +5,8 @@ import ReportsAPI from 'dashboard/api/reports';
 import { useAlert } from 'dashboard/composables';
 import { useLiveRefresh } from 'dashboard/composables/useLiveRefresh';
 import { useNumberFormatter } from 'shared/composables/useNumberFormatter';
+import WootDatePicker from 'dashboard/components/ui/DatePicker/DatePicker.vue';
+import { DATE_RANGE_TYPES } from 'dashboard/components/ui/DatePicker/helpers/DatePickerHelper';
 import ReportHeader from './components/ReportHeader.vue';
 import { exportIntegrationSgcReportPdf } from './helpers/integrationSgcReportPdf';
 
@@ -16,8 +18,6 @@ const FUNNEL_STAGE_GAP = 15;
 const REFRESH_INTERVAL = 60000;
 const RANGE_MODES = {
   LIVE: 'live',
-  LAST_30_DAYS: 'last_30_days',
-  LAST_MONTH: 'last_month',
   CUSTOM: 'custom',
   ALL: 'all',
 };
@@ -36,19 +36,14 @@ const hasError = ref(false);
 const rangeMode = ref(RANGE_MODES.LIVE);
 const customFromDate = ref('');
 const customToDate = ref('');
+const dateRange = ref([]);
+const selectedDateRange = ref(DATE_RANGE_TYPES.LAST_7_DAYS);
 const isLiveRefreshActive = ref(false);
 const isExporting = ref(false);
 let activeRequestController = null;
 
 const localeCode = computed(() => locale?.value);
 const isInitialLoading = computed(() => isFetching.value && !report.value);
-const isCustomRangeValid = computed(() => {
-  return (
-    customFromDate.value &&
-    customToDate.value &&
-    customFromDate.value <= customToDate.value
-  );
-});
 const statusLabel = computed(() => {
   if (isInitialLoading.value) return t('SGC_INTEGRATION_REPORTS.LOADING');
   if (isFetching.value) return t('SGC_INTEGRATION_REPORTS.REFRESHING');
@@ -96,24 +91,7 @@ const initializeCustomRange = () => {
   from.setDate(from.getDate() - 6);
   customFromDate.value = formatDateInput(from);
   customToDate.value = formatDateInput(to);
-};
-
-const setPresetRange = range => {
-  const today = new Date();
-  let from = new Date(today);
-  let to = new Date(today);
-
-  if (range === RANGE_MODES.LAST_30_DAYS) {
-    from.setDate(from.getDate() - 29);
-  }
-
-  if (range === RANGE_MODES.LAST_MONTH) {
-    from = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-    to = new Date(today.getFullYear(), today.getMonth(), 0);
-  }
-
-  customFromDate.value = formatDateInput(from);
-  customToDate.value = formatDateInput(to);
+  dateRange.value = [from, to];
 };
 
 const formatGeneratedAt = (value, timezone) => {
@@ -308,13 +286,7 @@ const abortActiveRequest = () => {
 
 const reportRequest = () => {
   if (rangeMode.value === RANGE_MODES.ALL) return { all: true };
-  if (
-    [
-      RANGE_MODES.CUSTOM,
-      RANGE_MODES.LAST_30_DAYS,
-      RANGE_MODES.LAST_MONTH,
-    ].includes(rangeMode.value)
-  ) {
+  if (rangeMode.value !== RANGE_MODES.LIVE) {
     return {
       fromDate: customFromDate.value,
       toDate: customToDate.value,
@@ -371,10 +343,6 @@ const stopLiveRefresh = () => {
 };
 
 const applyRange = async () => {
-  if (rangeMode.value === RANGE_MODES.CUSTOM && !isCustomRangeValid.value) {
-    return;
-  }
-
   stopLiveRefresh();
   abortActiveRequest();
   await fetchReport();
@@ -382,17 +350,20 @@ const applyRange = async () => {
   if (rangeMode.value === RANGE_MODES.LIVE) startLiveRefresh();
 };
 
-const onRangeModeChange = () => {
-  if (rangeMode.value === RANGE_MODES.CUSTOM && !customFromDate.value) {
-    initializeCustomRange();
-  }
+const onDateRangeChange = ([from, to, rangeType]) => {
+  customFromDate.value = formatDateInput(from);
+  customToDate.value = formatDateInput(to);
+  dateRange.value = [from, to];
+  selectedDateRange.value = rangeType || DATE_RANGE_TYPES.CUSTOM_RANGE;
+  rangeMode.value =
+    selectedDateRange.value === DATE_RANGE_TYPES.LAST_7_DAYS
+      ? RANGE_MODES.LIVE
+      : RANGE_MODES.CUSTOM;
+  applyRange();
+};
 
-  if (
-    [RANGE_MODES.LAST_30_DAYS, RANGE_MODES.LAST_MONTH].includes(rangeMode.value)
-  ) {
-    setPresetRange(rangeMode.value);
-  }
-
+const showAllHistory = () => {
+  rangeMode.value = RANGE_MODES.ALL;
   applyRange();
 };
 
@@ -470,70 +441,31 @@ onBeforeUnmount(() => {
               }}
             </button>
           </div>
-          <div class="mt-3 flex flex-wrap items-end gap-2">
-            <label class="flex flex-col gap-1">
-              <span class="text-xs font-medium text-n-slate-11">
-                {{ $t('SGC_INTEGRATION_REPORTS.FILTERS.LABEL') }}
-              </span>
-              <select
-                v-model="rangeMode"
-                data-testid="sgc-range-mode"
-                class="rounded-lg border border-n-strong bg-n-solid-2 px-3 py-2 text-sm text-n-slate-12 outline-none focus:border-n-brand"
-                @change="onRangeModeChange"
-              >
-                <option :value="RANGE_MODES.LIVE">
-                  {{ $t('SGC_INTEGRATION_REPORTS.FILTERS.LIVE') }}
-                </option>
-                <option :value="RANGE_MODES.LAST_30_DAYS">
-                  {{ $t('SGC_INTEGRATION_REPORTS.FILTERS.LAST_30_DAYS') }}
-                </option>
-                <option :value="RANGE_MODES.LAST_MONTH">
-                  {{ $t('SGC_INTEGRATION_REPORTS.FILTERS.LAST_MONTH') }}
-                </option>
-                <option :value="RANGE_MODES.CUSTOM">
-                  {{ $t('SGC_INTEGRATION_REPORTS.FILTERS.CUSTOM') }}
-                </option>
-                <option :value="RANGE_MODES.ALL">
-                  {{ $t('SGC_INTEGRATION_REPORTS.FILTERS.ALL') }}
-                </option>
-              </select>
-            </label>
-
-            <template v-if="rangeMode === RANGE_MODES.CUSTOM">
-              <label class="flex flex-col gap-1">
-                <span class="text-xs font-medium text-n-slate-11">
-                  {{ $t('SGC_INTEGRATION_REPORTS.FILTERS.FROM') }}
-                </span>
-                <input
-                  v-model="customFromDate"
-                  data-testid="sgc-range-from"
-                  type="date"
-                  :max="customToDate"
-                  class="rounded-lg border border-n-strong bg-n-solid-2 px-3 py-2 text-sm text-n-slate-12 outline-none focus:border-n-brand"
-                />
-              </label>
-              <label class="flex flex-col gap-1">
-                <span class="text-xs font-medium text-n-slate-11">
-                  {{ $t('SGC_INTEGRATION_REPORTS.FILTERS.TO') }}
-                </span>
-                <input
-                  v-model="customToDate"
-                  data-testid="sgc-range-to"
-                  type="date"
-                  :min="customFromDate"
-                  class="rounded-lg border border-n-strong bg-n-solid-2 px-3 py-2 text-sm text-n-slate-12 outline-none focus:border-n-brand"
-                />
-              </label>
-              <button
-                data-testid="sgc-range-apply"
-                type="button"
-                class="rounded-lg bg-n-brand px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
-                :disabled="!isCustomRangeValid || isFetching"
-                @click="applyRange"
-              >
-                {{ $t('SGC_INTEGRATION_REPORTS.FILTERS.APPLY') }}
-              </button>
-            </template>
+          <div
+            class="mt-3 flex flex-wrap items-center gap-2"
+            role="group"
+            :aria-label="$t('SGC_INTEGRATION_REPORTS.FILTERS.LABEL')"
+          >
+            <WootDatePicker
+              v-model:date-range="dateRange"
+              v-model:range-type="selectedDateRange"
+              @date-range-changed="onDateRangeChange"
+            />
+            <button
+              data-testid="sgc-all-history"
+              type="button"
+              class="flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors"
+              :class="
+                rangeMode === RANGE_MODES.ALL
+                  ? 'border-n-brand bg-n-brand text-white'
+                  : 'border-n-strong bg-n-solid-2 text-n-slate-12 hover:bg-n-solid-3'
+              "
+              :aria-pressed="rangeMode === RANGE_MODES.ALL"
+              @click="showAllHistory"
+            >
+              <i class="i-lucide-history size-4" />
+              {{ $t('SGC_INTEGRATION_REPORTS.FILTERS.ALL') }}
+            </button>
           </div>
         </div>
         <div class="flex shrink-0 items-center gap-2 text-sm font-medium">

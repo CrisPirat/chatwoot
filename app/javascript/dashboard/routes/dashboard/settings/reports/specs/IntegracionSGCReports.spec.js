@@ -108,6 +108,16 @@ vi.mock('../components/ReportHeader.vue', () => ({
   },
 }));
 
+vi.mock('dashboard/components/ui/DatePicker/DatePicker.vue', () => ({
+  default: {
+    name: 'WootDatePicker',
+    props: ['dateRange', 'rangeType'],
+    emits: ['dateRangeChanged'],
+    template:
+      '<button data-testid="sgc-date-picker" type="button">Periodo</button>',
+  },
+}));
+
 const mountComponent = () =>
   mount(IntegracionSGCReports, {
     global: {
@@ -196,9 +206,10 @@ describe('IntegracionSGCReports.vue', () => {
     expect(wrapper.findAll('[data-testid="sgc-summary-metric"]')).toHaveLength(
       0
     );
-    expect(wrapper.find('[data-testid="sgc-range-mode"]').element.value).toBe(
-      'live'
-    );
+    expect(wrapper.find('[data-testid="sgc-date-picker"]').exists()).toBe(true);
+    expect(
+      wrapper.find('[data-testid="sgc-all-history"]').attributes('aria-pressed')
+    ).toBe('false');
     expect(wrapper.text()).not.toContain('Resumen de conversaciones');
     expect(wrapper.text()).toContain('En vivo');
     expect(wrapper.text()).toContain('Actualizado:');
@@ -209,13 +220,17 @@ describe('IntegracionSGCReports.vue', () => {
     wrapper.unmount();
   });
 
-  it('requests custom and historical funnel ranges without live refresh', async () => {
+  it('requests date-picker and historical funnel ranges without live refresh', async () => {
     const wrapper = mountComponent();
     await flushPromises();
 
     await wrapper
-      .find('[data-testid="sgc-range-mode"]')
-      .setValue('last_30_days');
+      .findComponent({ name: 'WootDatePicker' })
+      .vm.$emit('dateRangeChanged', [
+        new Date('2026-06-30T12:00:00'),
+        new Date('2026-07-29T12:00:00'),
+        'last30days',
+      ]);
     await flushPromises();
 
     expect(getIntegrationSgcReport).toHaveBeenLastCalledWith(
@@ -225,17 +240,7 @@ describe('IntegracionSGCReports.vue', () => {
       })
     );
 
-    await wrapper.find('[data-testid="sgc-range-mode"]').setValue('last_month');
-    await flushPromises();
-
-    expect(getIntegrationSgcReport).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        fromDate: '2026-06-01',
-        toDate: '2026-06-30',
-      })
-    );
-
-    await wrapper.find('[data-testid="sgc-range-mode"]').setValue('all');
+    await wrapper.find('[data-testid="sgc-all-history"]').trigger('click');
     await flushPromises();
 
     expect(getIntegrationSgcReport).toHaveBeenLastCalledWith(
@@ -243,12 +248,17 @@ describe('IntegracionSGCReports.vue', () => {
     );
     expect(wrapper.text()).toContain('Todo el histórico');
     expect(stopRefetching).toHaveBeenCalled();
+    expect(
+      wrapper.find('[data-testid="sgc-all-history"]').attributes('aria-pressed')
+    ).toBe('true');
 
-    await wrapper.find('[data-testid="sgc-range-mode"]').setValue('custom');
-    await flushPromises();
-    await wrapper.find('[data-testid="sgc-range-from"]').setValue('2026-07-01');
-    await wrapper.find('[data-testid="sgc-range-to"]').setValue('2026-07-29');
-    await wrapper.find('[data-testid="sgc-range-apply"]').trigger('click');
+    await wrapper
+      .findComponent({ name: 'WootDatePicker' })
+      .vm.$emit('dateRangeChanged', [
+        new Date('2026-07-01T12:00:00'),
+        new Date('2026-07-29T12:00:00'),
+        'custom',
+      ]);
     await flushPromises();
 
     expect(getIntegrationSgcReport).toHaveBeenLastCalledWith(
@@ -273,7 +283,7 @@ describe('IntegracionSGCReports.vue', () => {
     const wrapper = mountComponent();
     await flushPromises();
 
-    await wrapper.find('[data-testid="sgc-range-mode"]').setValue('all');
+    await wrapper.find('[data-testid="sgc-all-history"]').trigger('click');
     await flushPromises();
 
     expect(wrapper.find('[data-testid="sgc-funnel-refreshing"]').text()).toBe(
