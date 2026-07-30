@@ -234,6 +234,20 @@ RSpec.describe SafeFetch do
         end
       end
 
+      it 'allows private hostnames when requested for a single fetch' do
+        private_url = 'http://internal-webhook-service/image.png'
+        allow(Resolv).to receive(:getaddresses).with('internal-webhook-service').and_return(['10.0.0.5'])
+        stub_request(:get, private_url).to_return(
+          status: 200,
+          body: File.new(Rails.root.join('spec/assets/avatar.png')),
+          headers: { 'Content-Type' => 'image/png' }
+        )
+
+        expect do
+          described_class.fetch(private_url, allow_private_network: true) { nil }
+        end.not_to raise_error
+      end
+
       it 'allows redirects to private hostnames when private network access is enabled' do
         redirect_url = 'http://example.com/redirect.png'
         private_url = 'http://private.example.com/image.png'

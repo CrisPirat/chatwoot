@@ -27,7 +27,8 @@ class IntegrationSgc::ReportFetcher
       headers: { 'Accept' => 'application/json' },
       allowed_content_type_prefixes: [],
       allowed_content_types: ['application/json'],
-      max_bytes: MAX_RESPONSE_BYTES
+      max_bytes: MAX_RESPONSE_BYTES,
+      allow_private_network: allow_private_network?
     ) do |result|
       report = normalize(JSON.parse(result.tempfile.read))
     end
@@ -154,6 +155,10 @@ class IntegrationSgc::ReportFetcher
     return source_url if query.empty?
 
     "#{source_url}?#{URI.encode_www_form(query)}"
+  end
+
+  def allow_private_network?
+    ActiveModel::Type::Boolean.new.cast(ENV.fetch('URL_REPORT_ALLOW_PRIVATE_NETWORK', false))
   end
 
   def all?

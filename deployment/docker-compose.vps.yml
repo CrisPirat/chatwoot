@@ -57,6 +57,7 @@ services:
     environment:
       <<: *chatwoot-environment
       URL_REPORT: ${URL_REPORT}
+      URL_REPORT_ALLOW_PRIVATE_NETWORK: ${URL_REPORT_ALLOW_PRIVATE_NETWORK:-false}
     command: ["bundle", "exec", "rails", "s", "-b", "0.0.0.0", "-p", "3000"]
     expose:
       - "3000"

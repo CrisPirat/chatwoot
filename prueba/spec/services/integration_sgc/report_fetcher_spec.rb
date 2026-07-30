@@ -49,7 +49,8 @@ RSpec.describe IntegrationSgc::ReportFetcher do
         headers: { 'Accept' => 'application/json' },
         allowed_content_type_prefixes: [],
         allowed_content_types: ['application/json'],
-        max_bytes: described_class::MAX_RESPONSE_BYTES
+        max_bytes: described_class::MAX_RESPONSE_BYTES,
+        allow_private_network: false
       ).and_yield(result)
 
       expect(described_class.new.perform).to eq(
@@ -106,7 +107,8 @@ RSpec.describe IntegrationSgc::ReportFetcher do
         headers: { 'Accept' => 'application/json' },
         allowed_content_type_prefixes: [],
         allowed_content_types: ['application/json'],
-        max_bytes: described_class::MAX_RESPONSE_BYTES
+        max_bytes: described_class::MAX_RESPONSE_BYTES,
+        allow_private_network: false
       ).and_yield(result)
 
       described_class.new(from_date: '2026-07-01', to_date: '2026-07-29').perform
@@ -124,7 +126,8 @@ RSpec.describe IntegrationSgc::ReportFetcher do
         headers: { 'Accept' => 'application/json' },
         allowed_content_type_prefixes: [],
         allowed_content_types: ['application/json'],
-        max_bytes: described_class::MAX_RESPONSE_BYTES
+        max_bytes: described_class::MAX_RESPONSE_BYTES,
+        allow_private_network: false
       ).and_yield(result)
 
       response = described_class.new(all: true).perform
@@ -142,7 +145,23 @@ RSpec.describe IntegrationSgc::ReportFetcher do
           headers: { 'Accept' => 'application/json' },
           allowed_content_type_prefixes: [],
           allowed_content_types: ['application/json'],
-          max_bytes: described_class::MAX_RESPONSE_BYTES
+          max_bytes: described_class::MAX_RESPONSE_BYTES,
+          allow_private_network: false
+        ).and_yield(result)
+
+        described_class.new.perform
+      end
+    end
+
+    it 'allows the configured report endpoint to use a private network' do
+      with_modified_env 'URL_REPORT_ALLOW_PRIVATE_NETWORK' => 'true' do
+        expect(SafeFetch).to receive(:fetch).with(
+          described_class::DEFAULT_REPORT_URL,
+          headers: { 'Accept' => 'application/json' },
+          allowed_content_type_prefixes: [],
+          allowed_content_types: ['application/json'],
+          max_bytes: described_class::MAX_RESPONSE_BYTES,
+          allow_private_network: true
         ).and_yield(result)
 
         described_class.new.perform
