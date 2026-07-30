@@ -1,7 +1,5 @@
 x-chatwoot: &chatwoot
   image: ${CHATWOOT_IMAGE:-omnicem/chatwoot:reports}
-  env_file:
-    - ../.env
   volumes:
     - /mnt/docker/volumes/chatwoot_storage:/app/storage
 
