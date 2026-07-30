@@ -37,10 +37,16 @@ services:
       - 3000:3000
     env_file: .env
     environment:
-      - VITE_DEV_SERVER_HOST=vite
+      - VITE_RUBY_HOST=vite
       - NODE_ENV=development
       - RAILS_ENV=development
-    entrypoint: docker/entrypoints/rails.sh
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        tr -d '\r' < docker/entrypoints/rails.sh > /tmp/rails.sh
+        exec /bin/sh /tmp/rails.sh "$$@"
+      - --
     command: ["bundle", "exec", "rails", "s", "-p", "3000", "-b", "0.0.0.0"]
 
   sidekiq:
@@ -76,11 +82,18 @@ services:
     ports:
       - "3036:3036" # Vite dev server
     environment:
-      - VITE_DEV_SERVER_HOST=0.0.0.0
+      - VITE_RUBY_HOST=0.0.0.0
+      - __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=vite
       - NODE_ENV=development
       - RAILS_ENV=development
-    entrypoint: docker/entrypoints/vite.sh
-    command: bin/vite dev
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        tr -d '\r' < docker/entrypoints/vite.sh > /tmp/vite.sh
+        exec /bin/sh /tmp/vite.sh "$$@"
+      - --
+    command: ["pnpm", "exec", "vite"]
 
   postgres:
     image: pgvector/pgvector:pg16
@@ -92,7 +105,7 @@ services:
     environment:
       - POSTGRES_DB=chatwoot
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
 
   redis:
     image: redis:alpine
