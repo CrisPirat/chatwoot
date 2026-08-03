@@ -40,10 +40,30 @@ describe Webhooks::Trigger do
         headers: base_headers,
         open_timeout: webhook_timeout,
         read_timeout: webhook_timeout,
-        validate_content_type: false
+        validate_content_type: false,
+        allow_private_network: false
       ).and_yield(fetch_result)
 
       trigger.execute(url, payload, webhook_type)
+    end
+
+    it 'keeps private access disabled for non-agent webhooks' do
+      private_url = 'http://n8n:5678/webhook/chatwoot'
+
+      with_modified_env 'AGENT_BOT_PRIVATE_WEBHOOK_HOSTS' => 'n8n' do
+        expect(SafeFetch).to receive(:fetch).with(
+          private_url,
+          method: :post,
+          body: payload.to_json,
+          headers: base_headers,
+          open_timeout: webhook_timeout,
+          read_timeout: webhook_timeout,
+          validate_content_type: false,
+          allow_private_network: false
+        ).and_yield(fetch_result)
+
+        trigger.execute(private_url, payload, webhook_type)
+      end
     end
 
     it 'updates message status if webhook fails for message-created event' do
@@ -73,6 +93,25 @@ describe Webhooks::Trigger do
       let(:webhook_type) { :agent_bot_webhook }
       let!(:pending_conversation) { create(:conversation, inbox: inbox, status: :pending, account: account) }
       let!(:pending_message) { create(:message, account: account, inbox: inbox, conversation: pending_conversation) }
+
+      it 'allows an explicitly configured private webhook host' do
+        private_url = 'http://n8n:5678/webhook/chatwoot'
+
+        with_modified_env 'AGENT_BOT_PRIVATE_WEBHOOK_HOSTS' => 'n8n' do
+          expect(SafeFetch).to receive(:fetch).with(
+            private_url,
+            method: :post,
+            body: payload.to_json,
+            headers: base_headers,
+            open_timeout: webhook_timeout,
+            read_timeout: webhook_timeout,
+            validate_content_type: false,
+            allow_private_network: true
+          ).and_yield(fetch_result)
+
+          trigger.execute(private_url, payload, webhook_type)
+        end
+      end
 
       it 'raises 500 errors for retry and does not reopen conversation immediately' do
         payload = { event: 'message_created', id: pending_message.id }
@@ -188,7 +227,8 @@ describe Webhooks::Trigger do
           headers: base_headers,
           open_timeout: webhook_timeout,
           read_timeout: webhook_timeout,
-          validate_content_type: false
+          validate_content_type: false,
+          allow_private_network: false
         ).and_yield(fetch_result)
 
         trigger.execute(url, payload, webhook_type)
@@ -276,7 +316,8 @@ describe Webhooks::Trigger do
         headers: base_headers,
         open_timeout: default_timeout,
         read_timeout: default_timeout,
-        validate_content_type: false
+        validate_content_type: false,
+        allow_private_network: false
       ).and_yield(fetch_result)
 
       trigger.execute(url, payload, webhook_type)
@@ -294,7 +335,8 @@ describe Webhooks::Trigger do
         headers: base_headers,
         open_timeout: default_timeout,
         read_timeout: default_timeout,
-        validate_content_type: false
+        validate_content_type: false,
+        allow_private_network: false
       ).and_yield(fetch_result)
 
       trigger.execute(url, payload, webhook_type)

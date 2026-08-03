@@ -45,6 +45,14 @@ URL_REPORT_ALLOW_PRIVATE_NETWORK=true
 
 No usar `SAFE_FETCH_ALLOW_PRIVATE_NETWORK`. La variable especifica anterior permite red privada solo para el webhook SGC configurado.
 
+Si un Agent Bot llama a n8n por una URL que Docker resuelve a IP privada, permitir solo el hostname confiable. No incluir esquema, puerto ni ruta:
+
+```dotenv
+AGENT_BOT_PRIVATE_WEBHOOK_HOSTS=quitomotors.bkn.aigentss.cloud
+```
+
+Se pueden permitir varios hosts separados por comas. Para una conexion directa al puerto de n8n, configurar el Agent Bot con una URL `http://host:5678/webhook/...`. Usar HTTPS sin el puerto `5678` cuando la solicitud pase por el proxy.
+
 ## Despliegue
 
 Desde el clon:
@@ -117,6 +125,16 @@ URL_REPORT_ALLOW_PRIVATE_NETWORK=true
 ```
 
 Despues ejecutar de nuevo el script de despliegue.
+
+`SafeFetch::UnsafeUrlError` al ejecutar un Agent Bot
+
+Agregar el hostname del webhook n8n a la lista, sin protocolo ni puerto:
+
+```dotenv
+AGENT_BOT_PRIVATE_WEBHOOK_HOSTS=quitomotors.bkn.aigentss.cloud
+```
+
+Despues ejecutar de nuevo el script de despliegue. La variable se inyecta en `chatwoot` y `chatwoot_sidekiq`.
 
 `The deployment checkout has tracked local changes`
 

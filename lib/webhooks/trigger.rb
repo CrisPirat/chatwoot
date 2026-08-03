@@ -1,3 +1,5 @@
+require 'uri'
+
 class Webhooks::Trigger
   SUPPORTED_ERROR_HANDLE_EVENTS = %w[message_created message_updated].freeze
   RETRYABLE_AGENT_BOT_STATUSES = [429, 500].freeze
@@ -47,7 +49,8 @@ class Webhooks::Trigger
       headers: request_headers(body),
       open_timeout: webhook_timeout,
       read_timeout: webhook_timeout,
-      validate_content_type: false
+      validate_content_type: false,
+      allow_private_network: allow_private_network?
     ) { |_response| nil }
   end
 
@@ -120,6 +123,21 @@ class Webhooks::Trigger
     timeout = raw_timeout.presence&.to_i
 
     timeout&.positive? ? timeout : 5
+  end
+
+  def allow_private_network?
+    return false unless @webhook_type == :agent_bot_webhook
+
+    agent_bot_private_webhook_hosts.include?(URI.parse(@url).host.to_s.downcase)
+  rescue URI::InvalidURIError
+    false
+  end
+
+  def agent_bot_private_webhook_hosts
+    ENV.fetch('AGENT_BOT_PRIVATE_WEBHOOK_HOSTS', '')
+       .split(',')
+       .map { |host| host.strip.downcase }
+       .reject(&:blank?)
   end
 
   def retryable_agent_bot_error?(error)

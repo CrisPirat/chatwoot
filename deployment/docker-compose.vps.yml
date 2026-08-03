@@ -17,6 +17,7 @@ x-chatwoot-environment: &chatwoot-environment
   FRONTEND_URL: https://${OMNICEM_URL}.aigentss.cloud
   CHATWOOT_HUB_URL: https://${OMNICEM_URL}.aigentss.cloud/app/#
   SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+  AGENT_BOT_PRIVATE_WEBHOOK_HOSTS: ${AGENT_BOT_PRIVATE_WEBHOOK_HOSTS:-}
 
 services:
   chatwoot_postgres:
